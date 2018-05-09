@@ -147,16 +147,14 @@ final class EntityManager implements EntityManagerInterface
      */
     protected function __construct(Connection $conn, Configuration $config, EventManager $eventManager)
     {
-        $this->conn         = $conn;
-        $this->config       = $config;
-        $this->eventManager = $eventManager;
-
         $metadataFactoryClassName = $config->getClassMetadataFactoryName();
 
+        $this->conn            = $conn;
+        $this->config          = $config;
+        $this->eventManager    = $eventManager;
         $this->metadataFactory = new $metadataFactoryClassName();
 
         $this->metadataFactory->setEntityManager($this);
-        $this->metadataFactory->setCacheDriver($this->config->getMetadataCacheImpl());
 
         $this->repositoryFactory   = $config->getRepositoryFactory();
         $this->unitOfWork          = new UnitOfWork($this);
@@ -166,7 +164,8 @@ final class EntityManager implements EntityManagerInterface
         if ($config->isSecondLevelCacheEnabled()) {
             $cacheConfig  = $config->getSecondLevelCacheConfiguration();
             $cacheFactory = $cacheConfig->getCacheFactory();
-            $this->cache  = $cacheFactory->createCache($this);
+
+            $this->cache = $cacheFactory->createCache($this);
         }
     }
 
