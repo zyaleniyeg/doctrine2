@@ -1230,11 +1230,11 @@ class UnitOfWork implements PropertyChangedListener
         foreach ($entityChangeSet as $entity) {
             $class = $this->em->getClassMetadata(get_class($entity));
 
-            if ($calc->hasNode($class->name)) {
+            if ($calc->hasClass($class->name)) {
                 continue;
             }
 
-            $calc->addNode($class->name, $class);
+            $calc->addClass($class);
 
             $newNodes[] = $class;
         }
@@ -1248,20 +1248,13 @@ class UnitOfWork implements PropertyChangedListener
 
                 $targetClass = $this->em->getClassMetadata($assoc['targetEntity']);
 
-                if ( ! $calc->hasNode($targetClass->name)) {
-                    $calc->addNode($targetClass->name, $targetClass);
+                if ( ! $calc->hasClass($targetClass->name)) {
+                    $calc->addClass($targetClass);
 
                     $newNodes[] = $targetClass;
                 }
 
-                $joinColumns = reset($assoc['joinColumns']);
-                $joinColumnsNullable = $joinColumns['nullable'] ?? true;
-
-                $calc->addDependency(
-                    $targetClass->name,
-                    $class->name,
-                    $joinColumnsNullable === false ? 1 : 0
-                );
+                $calc->addDependency($targetClass, $class);
 
                 // If the target class has mapped subclasses, these share the same dependency.
                 if ( ! $targetClass->subClasses) {
@@ -1271,18 +1264,18 @@ class UnitOfWork implements PropertyChangedListener
                 foreach ($targetClass->subClasses as $subClassName) {
                     $targetSubClass = $this->em->getClassMetadata($subClassName);
 
-                    if ( ! $calc->hasNode($subClassName)) {
-                        $calc->addNode($targetSubClass->name, $targetSubClass);
+                    if ( ! $calc->hasClass($subClassName)) {
+                        $calc->addClass($targetSubClass, $targetSubClass);
 
                         $newNodes[] = $targetSubClass;
                     }
 
-                    $calc->addDependency($targetSubClass->name, $class->name, 1);
+                    $calc->addDependency($targetSubClass, $class);
                 }
             }
         }
 
-        return $calc->sort();
+        return $calc->getCommitOrder();
     }
 
     /**
