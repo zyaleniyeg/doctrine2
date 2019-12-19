@@ -412,9 +412,9 @@ class UnitOfWork implements PropertyChangedListener
             $this->checkTransactionState('step7');
             $conn->commit();
         } catch (Throwable $e) {
-            //$this->checkTransactionState('step8');
+            $this->checkTransactionState('step8 ' . $e->getMessage() . ', ' . $e);
             $this->em->close();
-            //$this->checkTransactionState('step9');
+            $this->checkTransactionState('step9 ' . $e->getMessage() . ', ' . $e);
             try {
                 $conn->rollBack();
             } catch (Throwable $e2) {
