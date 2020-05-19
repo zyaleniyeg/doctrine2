@@ -374,49 +374,51 @@ class UnitOfWork implements PropertyChangedListener
 
         $conn = $this->em->getConnection();
         $conn->beginTransaction();
-
+        $this->checkTransactionState('step1');
         try {
             // Collection deletions (deletions of complete collections)
             foreach ($this->collectionDeletions as $collectionToDelete) {
                 $this->getCollectionPersister($collectionToDelete->getMapping())->delete($collectionToDelete);
             }
-
+            $this->checkTransactionState('step2');
             if ($this->entityInsertions) {
                 foreach ($commitOrder as $class) {
                     $this->executeInserts($class);
                 }
             }
-
+            $this->checkTransactionState('step3');
             if ($this->entityUpdates) {
                 foreach ($commitOrder as $class) {
                     $this->executeUpdates($class);
                 }
             }
-
+            $this->checkTransactionState('step4');
             // Extra updates that were requested by persisters.
             if ($this->extraUpdates) {
                 $this->executeExtraUpdates();
             }
-
+            $this->checkTransactionState('step5');
             // Collection updates (deleteRows, updateRows, insertRows)
             foreach ($this->collectionUpdates as $collectionToUpdate) {
                 $this->getCollectionPersister($collectionToUpdate->getMapping())->update($collectionToUpdate);
             }
-
+            $this->checkTransactionState('step6');
             // Entity deletions come last and need to be in reverse commit order
             if ($this->entityDeletions) {
                 for ($count = count($commitOrder), $i = $count - 1; $i >= 0 && $this->entityDeletions; --$i) {
                     $this->executeDeletions($commitOrder[$i]);
                 }
             }
-
+            $this->checkTransactionState('step7');
             $conn->commit();
         } catch (Throwable $e) {
             $this->em->close();
-            $conn->rollBack();
-
+            try {
+                $conn->rollBack();
+            } catch (Throwable $e2) {
+                throw new \Exception('UoW debug: ' . $e->getMessage() . ', ' . $e2->getMessage() . ', ' . $e);
+            }
             $this->afterTransactionRolledBack();
-
             throw $e;
         }
 
@@ -430,6 +432,15 @@ class UnitOfWork implements PropertyChangedListener
         $this->dispatchPostFlushEvent();
 
         $this->postCommitCleanup($entity);
+    }
+
+    private function checkTransactionState(string $message)
+    {
+        $conn = $this->em->getConnection();
+        $inTransaction = $conn->executeQuery("SELECT @@in_transaction")->fetchColumn();
+        if (!$inTransaction) {
+            throw new \Exception('We lost transaction: ' . $message);
+        }
     }
 
     /**
